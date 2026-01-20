@@ -5,6 +5,7 @@ import { SystemStatusPanel } from '@/components/dashboard/SystemStatusPanel';
 import { AlarmPanel } from '@/components/dashboard/AlarmPanel';
 import { EnergyChart } from '@/components/dashboard/EnergyChart';
 import { AssetHealthPanel } from '@/components/dashboard/AssetHealthPanel';
+import { LiveSolarDataPanel } from '@/components/dashboard/LiveSolarDataPanel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Zap, 
@@ -147,6 +148,11 @@ const Index = () => {
           icon={<Timer className="w-5 h-5" />}
           status="normal"
         />
+      </div>
+      
+      {/* Live Solar Data Panel - Full Width */}
+      <div className="mb-6">
+        <LiveSolarDataPanel />
       </div>
       
       {/* Main Dashboard Grid */}
