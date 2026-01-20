@@ -6,6 +6,7 @@ import { AlarmPanel } from '@/components/dashboard/AlarmPanel';
 import { EnergyChart } from '@/components/dashboard/EnergyChart';
 import { AssetHealthPanel } from '@/components/dashboard/AssetHealthPanel';
 import { LiveSolarDataPanel } from '@/components/dashboard/LiveSolarDataPanel';
+import { GlobalSolarTracker3D } from '@/components/dashboard/GlobalSolarTracker3D';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Zap, 
@@ -153,6 +154,11 @@ const Index = () => {
       {/* Live Solar Data Panel - Full Width */}
       <div className="mb-6">
         <LiveSolarDataPanel />
+      </div>
+      
+      {/* Global Solar Power Tracker - 3D Globe */}
+      <div className="mb-6">
+        <GlobalSolarTracker3D />
       </div>
       
       {/* Main Dashboard Grid */}
