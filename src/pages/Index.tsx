@@ -6,7 +6,7 @@ import { EnhancedAlarmPanel } from '@/components/dashboard/EnhancedAlarmPanel';
 import { EnergyChart } from '@/components/dashboard/EnergyChart';
 import { AssetHealthPanel } from '@/components/dashboard/AssetHealthPanel';
 import { LiveSolarDataPanel } from '@/components/dashboard/LiveSolarDataPanel';
-import { GlobalSolarTracker3D } from '@/components/dashboard/GlobalSolarTracker3D';
+import { EgyptSolarTracker3D } from '@/components/dashboard/EgyptSolarTracker3D';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVR } from '@/contexts/VRContext';
 import { 
@@ -157,9 +157,9 @@ const Index = () => {
         <LiveSolarDataPanel />
       </div>
       
-      {/* Global Solar Power Tracker - 3D Globe */}
+      {/* Egypt Solar Power Tracker - 3D Map */}
       <div className="mb-6">
-        <GlobalSolarTracker3D />
+        <EgyptSolarTracker3D />
       </div>
       
       {/* Main Dashboard Grid */}

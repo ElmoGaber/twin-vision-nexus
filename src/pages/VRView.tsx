@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { EnhancedVRScene } from '@/components/vr/EnhancedVRScene';
+import { IndustrialVRScene } from '@/components/vr/IndustrialVRScene';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVR } from '@/contexts/VRContext';
 import { Button } from '@/components/ui/button';
@@ -108,7 +108,7 @@ const VRView = () => {
         <div className="flex-1 flex gap-4 min-h-[600px]">
           {/* VR Scene */}
           <div className={`flex-1 ${showAssetList ? '' : 'w-full'}`}>
-            <EnhancedVRScene />
+            <IndustrialVRScene />
           </div>
           
           {/* Asset Navigation Panel */}
