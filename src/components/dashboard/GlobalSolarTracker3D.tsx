@@ -132,17 +132,19 @@ function InstallationMarker({
   const isVisible = filters.status.includes(installation.status) && 
                     filters.type.includes(installation.type);
   
-  if (!isVisible) return null;
-  
   // Size based on capacity
   const size = Math.min(0.15, Math.max(0.04, installation.capacity / 10000));
   const color = statusConfig[installation.status as keyof typeof statusConfig]?.color || '#22c55e';
   
+  // useFrame hook MUST be called unconditionally (before any return)
   useFrame(() => {
-    if (meshRef.current && isSelected) {
+    if (meshRef.current && isSelected && isVisible) {
       meshRef.current.scale.setScalar(1 + Math.sin(Date.now() * 0.005) * 0.2);
     }
   });
+  
+  // Conditional return AFTER all hooks
+  if (!isVisible) return null;
   
   return (
     <group position={position}>
