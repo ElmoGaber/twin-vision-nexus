@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { SystemStatusPanel } from '@/components/dashboard/SystemStatusPanel';
-import { AlarmPanel } from '@/components/dashboard/AlarmPanel';
+import { EnhancedAlarmPanel } from '@/components/dashboard/EnhancedAlarmPanel';
 import { EnergyChart } from '@/components/dashboard/EnergyChart';
 import { AssetHealthPanel } from '@/components/dashboard/AssetHealthPanel';
 import { LiveSolarDataPanel } from '@/components/dashboard/LiveSolarDataPanel';
 import { GlobalSolarTracker3D } from '@/components/dashboard/GlobalSolarTracker3D';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useVR } from '@/contexts/VRContext';
 import { 
   Zap, 
   Gauge, 
@@ -173,9 +174,9 @@ const Index = () => {
           <SystemStatusPanel />
         </div>
         
-        {/* Alarm Panel */}
+        {/* Enhanced Alarm Panel with VR Integration */}
         <div className="lg:col-span-1">
-          <AlarmPanel />
+          <EnhancedAlarmPanel />
         </div>
         
         {/* Asset Health */}
