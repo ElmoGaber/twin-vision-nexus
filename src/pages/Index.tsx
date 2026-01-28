@@ -7,6 +7,9 @@ import { EnergyChart } from '@/components/dashboard/EnergyChart';
 import { AssetHealthPanel } from '@/components/dashboard/AssetHealthPanel';
 import { LiveSolarDataPanel } from '@/components/dashboard/LiveSolarDataPanel';
 import { EgyptSolarTracker3D } from '@/components/dashboard/EgyptSolarTracker3D';
+import { PredictionPanel } from '@/components/dashboard/PredictionPanel';
+import { WeatherImpactPanel } from '@/components/dashboard/WeatherImpactPanel';
+import { DecisionLayerPanel } from '@/components/dashboard/DecisionLayerPanel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVR } from '@/contexts/VRContext';
 import { 
@@ -14,46 +17,24 @@ import {
   Gauge, 
   HeartPulse, 
   AlertTriangle, 
-  BatteryCharging,
   Timer,
   Leaf,
-  Activity
+  Activity,
+  Brain,
+  TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { View } from 'lucide-react';
 import solarPlantHero from '@/assets/solar-plant-hero.jpg';
 
 const Index = () => {
-  const { t, dir } = useLanguage();
-  const [kpis, setKpis] = useState({
-    energyEfficiency: 94.2,
-    loadPercentage: 78,
-    assetHealth: 87,
-    downtimeRisk: 12,
-    powerOutput: 42.5,
-    activeAlarms: 3,
-    co2Savings: 156.8,
-    uptime: 99.7,
-  });
+  const { t, dir, language } = useLanguage();
+  const isArabic = language === 'ar';
+  const { liveMetrics, riskScore, syncStatus, lastUpdate, decisionLayers, alarms } = useVR();
   
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setKpis(prev => ({
-        energyEfficiency: Math.min(100, Math.max(85, prev.energyEfficiency + (Math.random() - 0.5) * 0.5)),
-        loadPercentage: Math.min(100, Math.max(60, prev.loadPercentage + (Math.random() - 0.5) * 2)),
-        assetHealth: Math.min(100, Math.max(80, prev.assetHealth + (Math.random() - 0.5) * 0.3)),
-        downtimeRisk: Math.min(30, Math.max(5, prev.downtimeRisk + (Math.random() - 0.5) * 0.5)),
-        powerOutput: Math.max(30, prev.powerOutput + (Math.random() - 0.5) * 1),
-        activeAlarms: prev.activeAlarms,
-        co2Savings: prev.co2Savings + Math.random() * 0.02,
-        uptime: prev.uptime,
-      }));
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  const pendingDecisions = decisionLayers.filter(d => d.status === 'pending').length;
   
   return (
     <DashboardLayout>
@@ -69,13 +50,37 @@ const Index = () => {
               {t('dashboard.title')}
             </h1>
             <p className="text-muted-foreground max-w-md">
-              {t('dashboard.subtitle')} - Real-time monitoring, AI-driven insights, and immersive 3D visualization.
+              {isArabic 
+                ? 'مراقبة لحظية، تحليلات ذكية، تنبؤ بالإنتاج والأعطال، وبيئة VR غامرة' 
+                : 'Real-time monitoring, AI predictions, fault forecasting, and immersive VR walkthrough'}
             </p>
+            <div className="flex items-center gap-2 mt-3">
+              <Badge variant="outline" className={`
+                ${syncStatus === 'connected' ? 'border-status-normal text-status-normal' :
+                  syncStatus === 'syncing' ? 'border-primary text-primary' :
+                  'border-status-critical text-status-critical'}
+              `}>
+                <span className={`w-2 h-2 rounded-full mr-2 ${
+                  syncStatus === 'connected' ? 'bg-status-normal' :
+                  syncStatus === 'syncing' ? 'bg-primary animate-pulse' :
+                  'bg-status-critical'
+                }`} />
+                {syncStatus === 'connected' ? (isArabic ? 'متصل' : 'LIVE') :
+                 syncStatus === 'syncing' ? (isArabic ? 'مزامنة' : 'SYNCING') :
+                 isArabic ? 'غير متصل' : 'OFFLINE'}
+              </Badge>
+              {pendingDecisions > 0 && (
+                <Badge variant="secondary" className="animate-pulse">
+                  <Brain className="w-3 h-3 mr-1" />
+                  {pendingDecisions} {isArabic ? 'قرار معلق' : 'pending decisions'}
+                </Badge>
+              )}
+            </div>
           </div>
           <Link to="/vr">
             <Button size="lg" className="gap-2 bg-primary hover:bg-primary/90">
               <View className="w-5 h-5" />
-              {t('vr.enterVR')}
+              {isArabic ? 'دخول VR' : 'Enter VR'}
             </Button>
           </Link>
         </div>
@@ -84,72 +89,77 @@ const Index = () => {
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KPICard
-          title={t('kpi.energyEfficiency')}
-          value={kpis.energyEfficiency.toFixed(1)}
+          title={isArabic ? 'كفاءة الطاقة' : 'Energy Efficiency'}
+          value={liveMetrics.efficiency.toFixed(1)}
           unit="%"
           trend="up"
           trendValue="+2.1%"
           icon={<Zap className="w-5 h-5" />}
-          status={kpis.energyEfficiency >= 90 ? 'normal' : 'warning'}
+          status={liveMetrics.efficiency >= 90 ? 'normal' : 'warning'}
         />
         <KPICard
-          title={t('kpi.loadPercentage')}
-          value={kpis.loadPercentage.toFixed(0)}
-          unit="%"
-          trend="stable"
-          icon={<Gauge className="w-5 h-5" />}
+          title={isArabic ? 'إنتاج الطاقة' : 'Power Output'}
+          value={liveMetrics.totalPower.toFixed(1)}
+          unit="MW"
+          trend="up"
+          icon={<Activity className="w-5 h-5" />}
           status="normal"
         />
         <KPICard
-          title={t('kpi.assetHealth')}
-          value={kpis.assetHealth.toFixed(0)}
+          title={isArabic ? 'صحة النظام' : 'System Health'}
+          value={liveMetrics.systemHealth.toFixed(0)}
           unit="%"
-          trend="down"
-          trendValue="-1.2%"
+          trend={liveMetrics.systemHealth >= 85 ? 'up' : 'down'}
           icon={<HeartPulse className="w-5 h-5" />}
-          status={kpis.assetHealth >= 85 ? 'normal' : 'warning'}
+          status={liveMetrics.systemHealth >= 85 ? 'normal' : 'warning'}
         />
         <KPICard
-          title={t('kpi.downtimeRisk')}
-          value={kpis.downtimeRisk.toFixed(0)}
+          title={isArabic ? 'مؤشر المخاطر' : 'Risk Score'}
+          value={riskScore.toFixed(0)}
           unit="%"
-          trend="up"
-          trendValue="+3%"
+          trend={riskScore <= 30 ? 'down' : 'up'}
           icon={<AlertTriangle className="w-5 h-5" />}
-          status={kpis.downtimeRisk <= 15 ? 'normal' : kpis.downtimeRisk <= 25 ? 'warning' : 'critical'}
+          status={riskScore <= 30 ? 'normal' : riskScore <= 50 ? 'warning' : 'critical'}
         />
       </div>
       
       {/* Secondary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KPICard
-          title={t('kpi.powerOutput')}
-          value={kpis.powerOutput.toFixed(1)}
-          unit="MW"
-          icon={<Activity className="w-5 h-5" />}
+          title={isArabic ? 'الإشعاع الشمسي' : 'Solar Irradiance'}
+          value={liveMetrics.irradiance.toFixed(0)}
+          unit="W/m²"
+          icon={<TrendingUp className="w-5 h-5" />}
           status="normal"
         />
         <KPICard
-          title={t('kpi.activeAlarms')}
-          value={kpis.activeAlarms}
+          title={isArabic ? 'التنبيهات النشطة' : 'Active Alarms'}
+          value={alarms.length}
           icon={<AlertTriangle className="w-5 h-5" />}
-          status={kpis.activeAlarms === 0 ? 'normal' : kpis.activeAlarms <= 2 ? 'warning' : 'critical'}
+          status={alarms.length === 0 ? 'normal' : alarms.length <= 2 ? 'warning' : 'critical'}
         />
         <KPICard
-          title={t('kpi.co2Savings')}
-          value={kpis.co2Savings.toFixed(1)}
-          unit="tons"
+          title={isArabic ? 'توفير CO2' : 'CO2 Savings'}
+          value={liveMetrics.carbonOffset.toFixed(1)}
+          unit={isArabic ? 'طن' : 'tons'}
           trend="up"
           icon={<Leaf className="w-5 h-5" />}
           status="normal"
         />
         <KPICard
-          title={t('kpi.uptime')}
-          value={kpis.uptime.toFixed(1)}
+          title={isArabic ? 'تأثير الطقس' : 'Weather Impact'}
+          value={(liveMetrics.weatherImpactFactor * 100).toFixed(0)}
           unit="%"
-          icon={<Timer className="w-5 h-5" />}
-          status="normal"
+          icon={<Gauge className="w-5 h-5" />}
+          status={liveMetrics.weatherImpactFactor >= 0.9 ? 'normal' : 'warning'}
         />
+      </div>
+      
+      {/* AI Features Row - Predictions, Weather, Decisions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <PredictionPanel />
+        <WeatherImpactPanel />
+        <DecisionLayerPanel />
       </div>
       
       {/* Live Solar Data Panel - Full Width */}
