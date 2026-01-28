@@ -49,81 +49,256 @@ const typeConfig = {
   pv: { label: 'PV', labelAr: 'كهروضوئية', count: 19 },
 };
 
-// Egypt boundaries (simplified polygon)
-const egyptBoundaries = [
-  [31.5, 25.0], [31.5, 29.0], [32.0, 31.0], [34.2, 31.5], [34.9, 29.5],
-  [35.0, 28.0], [34.5, 27.5], [33.2, 28.5], [33.0, 22.0], [31.5, 22.0],
-  [25.0, 22.0], [25.0, 31.5], [25.0, 31.5], [31.5, 25.0]
+// Egypt boundaries - accurate geographical coordinates (lng, lat pairs for correct mapping)
+// Main Egypt boundary polygon - following real borders
+const egyptMainBoundary = [
+  // Mediterranean coast (west to east)
+  { lng: 25.15, lat: 31.50 }, // Libya border at coast
+  { lng: 25.89, lat: 31.62 },
+  { lng: 27.25, lat: 31.45 },
+  { lng: 28.95, lat: 31.12 }, // Alexandria area
+  { lng: 29.85, lat: 31.22 },
+  { lng: 30.42, lat: 31.48 },
+  { lng: 31.50, lat: 31.52 }, // Delta coast
+  { lng: 32.30, lat: 31.22 }, // Port Said area
+  { lng: 32.57, lat: 31.08 },
+  { lng: 34.22, lat: 31.32 }, // Rafah - Gaza border
+  
+  // Eastern border (Sinai - Red Sea)
+  { lng: 34.90, lat: 29.50 }, // Taba
+  { lng: 34.87, lat: 29.21 },
+  { lng: 34.80, lat: 28.60 },
+  { lng: 34.40, lat: 27.80 },
+  { lng: 33.95, lat: 27.10 },
+  { lng: 33.55, lat: 26.50 },
+  { lng: 34.10, lat: 25.75 },
+  { lng: 34.45, lat: 24.95 },
+  { lng: 35.00, lat: 24.20 },
+  { lng: 35.62, lat: 23.95 },
+  { lng: 35.80, lat: 23.65 },
+  { lng: 36.87, lat: 22.00 }, // Sudan border at Red Sea
+  
+  // Southern border with Sudan
+  { lng: 36.87, lat: 22.00 },
+  { lng: 33.20, lat: 22.00 },
+  { lng: 31.40, lat: 22.00 },
+  { lng: 29.00, lat: 22.00 },
+  { lng: 25.00, lat: 22.00 }, // Southwestern corner
+  
+  // Western border with Libya
+  { lng: 25.00, lat: 22.00 },
+  { lng: 25.00, lat: 25.50 },
+  { lng: 25.00, lat: 29.00 },
+  { lng: 25.00, lat: 31.50 },
+  { lng: 25.15, lat: 31.50 }, // Back to start
 ];
 
-// Convert lat/lng to 2D map coordinates (Egypt-focused)
+// Sinai Peninsula outline
+const sinaiPeninsula = [
+  { lng: 32.57, lat: 31.08 },
+  { lng: 33.00, lat: 30.90 },
+  { lng: 33.50, lat: 30.40 },
+  { lng: 34.22, lat: 31.32 },
+  { lng: 34.90, lat: 29.50 },
+  { lng: 34.27, lat: 28.00 },
+  { lng: 33.20, lat: 28.40 },
+  { lng: 32.35, lat: 29.35 },
+  { lng: 32.32, lat: 30.02 },
+  { lng: 32.57, lat: 31.08 },
+];
+
+// Nile River path - accurate coordinates
+const nileRiverPath = [
+  { lng: 31.23, lat: 30.05 }, // Cairo
+  { lng: 31.15, lat: 29.50 },
+  { lng: 31.08, lat: 29.07 },
+  { lng: 30.95, lat: 28.80 },
+  { lng: 30.90, lat: 28.30 },
+  { lng: 31.00, lat: 27.75 },
+  { lng: 31.20, lat: 27.18 }, // Luxor
+  { lng: 31.60, lat: 26.50 },
+  { lng: 32.45, lat: 25.70 },
+  { lng: 32.55, lat: 25.00 },
+  { lng: 32.90, lat: 24.45 }, // Benban
+  { lng: 32.90, lat: 24.09 }, // Aswan
+  { lng: 32.85, lat: 23.50 },
+  { lng: 32.95, lat: 22.00 }, // Sudan border
+];
+
+// Nile Delta branches
+const nileDeltaRosetta = [
+  { lng: 31.23, lat: 30.05 }, // Cairo
+  { lng: 30.80, lat: 30.50 },
+  { lng: 30.50, lat: 30.90 },
+  { lng: 30.40, lat: 31.25 },
+  { lng: 30.42, lat: 31.48 }, // Rosetta
+];
+
+const nileDeltaDamietta = [
+  { lng: 31.23, lat: 30.05 }, // Cairo
+  { lng: 31.45, lat: 30.60 },
+  { lng: 31.60, lat: 31.00 },
+  { lng: 31.50, lat: 31.42 }, // Damietta
+];
+
+// Suez Canal
+const suezCanal = [
+  { lng: 32.30, lat: 31.22 }, // Port Said
+  { lng: 32.35, lat: 30.85 },
+  { lng: 32.35, lat: 30.45 },
+  { lng: 32.50, lat: 30.02 }, // Suez
+];
+
+// Convert lat/lng to 2D map coordinates (Egypt-focused with proper scaling)
 function latLngToMap(lat: number, lng: number): [number, number] {
-  // Egypt bounds: lat 22-32, lng 25-35
-  const x = ((lng - 25) / 10) * 8 - 4; // Scale to -4 to 4
-  const y = ((lat - 22) / 10) * 6 - 3; // Scale to -3 to 3
+  // Egypt bounds: lat 21.5-32, lng 24.5-37
+  const centerLng = 30.75;
+  const centerLat = 26.75;
+  const scale = 0.6;
+  
+  const x = (lng - centerLng) * scale;
+  const y = (lat - centerLat) * scale;
   return [x, y];
 }
 
-// Egypt Map with boundaries
+// Egypt Map with accurate boundaries
 function EgyptMap() {
-  // Create boundary points
-  const boundaryPoints = egyptBoundaries.map(([lat, lng]) => {
+  // Create main boundary points
+  const mainBoundaryPoints = egyptMainBoundary.map(({ lat, lng }) => {
     const [x, y] = latLngToMap(lat, lng);
     return new THREE.Vector3(x, 0.01, -y);
   });
 
-  // Nile River path (simplified)
-  const nilePoints = [
-    [30.0, 31.2], [29.5, 31.3], [28.5, 30.8], [27.5, 31.0], [26.5, 32.0],
-    [25.5, 32.5], [24.0, 32.9], [23.0, 32.9], [22.0, 32.8]
-  ].map(([lat, lng]) => {
+  // Sinai boundary
+  const sinaiPoints = sinaiPeninsula.map(({ lat, lng }) => {
+    const [x, y] = latLngToMap(lat, lng);
+    return new THREE.Vector3(x, 0.01, -y);
+  });
+
+  // Nile River points
+  const nilePoints = nileRiverPath.map(({ lat, lng }) => {
     const [x, y] = latLngToMap(lat, lng);
     return new THREE.Vector3(x, 0.02, -y);
   });
 
+  // Delta branches
+  const rosettaPoints = nileDeltaRosetta.map(({ lat, lng }) => {
+    const [x, y] = latLngToMap(lat, lng);
+    return new THREE.Vector3(x, 0.02, -y);
+  });
+
+  const damiettaPoints = nileDeltaDamietta.map(({ lat, lng }) => {
+    const [x, y] = latLngToMap(lat, lng);
+    return new THREE.Vector3(x, 0.02, -y);
+  });
+
+  // Suez Canal points
+  const suezPoints = suezCanal.map(({ lat, lng }) => {
+    const [x, y] = latLngToMap(lat, lng);
+    return new THREE.Vector3(x, 0.02, -y);
+  });
+
+  // Create Egypt land shape
+  const egyptShape = new THREE.Shape();
+  const firstPoint = latLngToMap(egyptMainBoundary[0].lat, egyptMainBoundary[0].lng);
+  egyptShape.moveTo(firstPoint[0], -firstPoint[1]);
+  egyptMainBoundary.slice(1).forEach(({ lat, lng }) => {
+    const [x, y] = latLngToMap(lat, lng);
+    egyptShape.lineTo(x, -y);
+  });
+  egyptShape.closePath();
+
   return (
     <group>
-      {/* Egypt land */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <planeGeometry args={[10, 8]} />
-        <meshStandardMaterial color="#1a1f2e" />
+      {/* Background - Sea/Ocean */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+        <planeGeometry args={[16, 12]} />
+        <meshStandardMaterial color="#0a1628" />
       </mesh>
 
-      {/* Egypt boundary outline */}
+      {/* Egypt land mass */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <shapeGeometry args={[egyptShape]} />
+        <meshStandardMaterial color="#1a2744" side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Egypt main boundary outline */}
       <Line
-        points={boundaryPoints}
+        points={mainBoundaryPoints}
         color="#4ade80"
-        lineWidth={2}
+        lineWidth={2.5}
       />
 
-      {/* Nile River */}
+      {/* Sinai Peninsula outline */}
+      <Line
+        points={sinaiPoints}
+        color="#4ade80"
+        lineWidth={1.5}
+        opacity={0.7}
+      />
+
+      {/* Nile River - Main */}
       <Line
         points={nilePoints}
         color="#3b82f6"
         lineWidth={3}
       />
 
-      {/* Mediterranean Sea */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, -3.5]}>
-        <planeGeometry args={[10, 1]} />
-        <meshStandardMaterial color="#1e3a5f" transparent opacity={0.6} />
-      </mesh>
+      {/* Nile Delta - Rosetta Branch */}
+      <Line
+        points={rosettaPoints}
+        color="#3b82f6"
+        lineWidth={2}
+      />
 
-      {/* Red Sea */}
-      <mesh rotation={[-Math.PI / 2, 0, Math.PI / 6]} position={[4.5, -0.01, 1]}>
-        <planeGeometry args={[2, 4]} />
-        <meshStandardMaterial color="#1e3a5f" transparent opacity={0.6} />
-      </mesh>
+      {/* Nile Delta - Damietta Branch */}
+      <Line
+        points={damiettaPoints}
+        color="#3b82f6"
+        lineWidth={2}
+      />
+
+      {/* Suez Canal */}
+      <Line
+        points={suezPoints}
+        color="#60a5fa"
+        lineWidth={1.5}
+        dashed
+      />
+
+      {/* Mediterranean Sea label */}
+      <Html position={[0, 0.1, 3]} center>
+        <div className="text-[9px] text-blue-400/70 font-medium tracking-wider">MEDITERRANEAN SEA البحر المتوسط</div>
+      </Html>
+
+      {/* Red Sea label */}
+      <Html position={[3, 0.1, 0]} center>
+        <div className="text-[9px] text-blue-400/70 font-medium rotate-90">RED SEA البحر الأحمر</div>
+      </Html>
 
       {/* Major cities labels */}
-      <Html position={[latLngToMap(30.05, 31.25)[0], 0.1, -latLngToMap(30.05, 31.25)[1]]} center>
-        <div className="text-[10px] text-primary font-bold bg-background/80 px-1 rounded">Cairo القاهرة</div>
+      <Html position={[latLngToMap(30.05, 31.23)[0], 0.1, -latLngToMap(30.05, 31.23)[1]]} center>
+        <div className="text-[10px] text-primary font-bold bg-background/90 px-1.5 py-0.5 rounded border border-border/50">
+          ● Cairo القاهرة
+        </div>
       </Html>
-      <Html position={[latLngToMap(31.2, 29.95)[0], 0.1, -latLngToMap(31.2, 29.95)[1]]} center>
-        <div className="text-[10px] text-primary font-bold bg-background/80 px-1 rounded">Alexandria الإسكندرية</div>
+      <Html position={[latLngToMap(31.20, 29.92)[0], 0.1, -latLngToMap(31.20, 29.92)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Alexandria الإسكندرية</div>
       </Html>
-      <Html position={[latLngToMap(24.09, 32.9)[0], 0.1, -latLngToMap(24.09, 32.9)[1]]} center>
-        <div className="text-[10px] text-primary font-bold bg-background/80 px-1 rounded">Aswan أسوان</div>
+      <Html position={[latLngToMap(24.09, 32.90)[0], 0.1, -latLngToMap(24.09, 32.90)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Aswan أسوان</div>
+      </Html>
+      <Html position={[latLngToMap(25.70, 32.65)[0], 0.1, -latLngToMap(25.70, 32.65)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Luxor الأقصر</div>
+      </Html>
+      <Html position={[latLngToMap(31.26, 32.30)[0], 0.1, -latLngToMap(31.26, 32.30)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Port Said بورسعيد</div>
+      </Html>
+      <Html position={[latLngToMap(30.02, 32.55)[0], 0.1, -latLngToMap(30.02, 32.55)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Suez السويس</div>
+      </Html>
+      <Html position={[latLngToMap(27.91, 34.33)[0], 0.1, -latLngToMap(27.91, 34.33)[1]]} center>
+        <div className="text-[9px] text-muted-foreground bg-background/80 px-1 rounded">Sharm شرم الشيخ</div>
       </Html>
     </group>
   );
