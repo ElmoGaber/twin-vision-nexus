@@ -540,19 +540,56 @@ const ExpandablePanel: React.FC<{
   );
 };
 
-// Enhanced HUD
+// Enhanced HUD with Weather, Predictions, and Decision Layers
 const EnhancedHUD: React.FC<{ 
   isInfoExpanded: boolean; 
   setIsInfoExpanded: (v: boolean) => void 
 }> = ({ isInfoExpanded, setIsInfoExpanded }) => {
   const { t, language } = useLanguage();
   const isArabic = language === 'ar';
-  const { liveMetrics, recommendations, riskScore, alarms } = useVR();
+  const { 
+    liveMetrics, 
+    recommendations, 
+    riskScore, 
+    alarms,
+    weather,
+    productionPrediction,
+    maintenancePredictions,
+    decisionLayers,
+    approveDecision,
+    rejectDecision,
+    executeDecision,
+    lastUpdate,
+    syncStatus
+  } = useVR();
+  
+  const pendingDecisions = decisionLayers.filter(d => d.status === 'pending');
   
   return (
     <>
-      {/* Top Left - Expandable Panels */}
-      <div className="absolute top-4 left-4 z-10 space-y-2 max-w-[320px]">
+      {/* Sync Status Indicator */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+        <Badge variant="outline" className={`
+          ${syncStatus === 'connected' ? 'border-status-normal text-status-normal' :
+            syncStatus === 'syncing' ? 'border-primary text-primary' :
+            'border-status-critical text-status-critical'}
+        `}>
+          <span className={`w-2 h-2 rounded-full mr-2 ${
+            syncStatus === 'connected' ? 'bg-status-normal' :
+            syncStatus === 'syncing' ? 'bg-primary animate-pulse' :
+            'bg-status-critical'
+          }`} />
+          {syncStatus === 'connected' ? (isArabic ? 'متصل' : 'LIVE SYNC') :
+           syncStatus === 'syncing' ? (isArabic ? 'جاري المزامنة' : 'SYNCING') :
+           isArabic ? 'غير متصل' : 'OFFLINE'}
+          <span className="ml-2 text-xs opacity-70">
+            {lastUpdate.toLocaleTimeString()}
+          </span>
+        </Badge>
+      </div>
+      
+      {/* Top Left - Live Data & Weather */}
+      <div className="absolute top-14 left-4 z-10 space-y-2 max-w-[320px]">
         <ExpandablePanel 
           title={isArabic ? 'البيانات الحية' : 'Live Metrics'}
           icon={<Eye className="w-4 h-4 text-primary" />}
@@ -590,15 +627,62 @@ const EnhancedHUD: React.FC<{
             </div>
             <div className="space-y-1">
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                <Cloud className="w-3 h-3" /> {isArabic ? 'السحب' : 'Cloud'}
+                <Thermometer className="w-3 h-3" /> {isArabic ? 'الحرارة' : 'Temp'}
               </span>
               <span className="text-lg font-mono text-foreground">
-                {liveMetrics.cloudCover.toFixed(0)}%
+                {liveMetrics.temperature.toFixed(1)}°C
               </span>
+            </div>
+          </div>
+          
+          {/* Weather Impact Bar */}
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-muted-foreground">{isArabic ? 'تأثير الطقس' : 'Weather Impact'}</span>
+              <span className={liveMetrics.weatherImpactFactor >= 0.9 ? 'text-status-normal' : 'text-status-warning'}>
+                {(liveMetrics.weatherImpactFactor * 100).toFixed(0)}%
+              </span>
+            </div>
+            <Progress value={liveMetrics.weatherImpactFactor * 100} className="h-2" />
+          </div>
+        </ExpandablePanel>
+        
+        {/* Weather Panel */}
+        <ExpandablePanel 
+          title={isArabic ? 'المناخ' : 'Weather'}
+          icon={<Cloud className="w-4 h-4 text-blue-400" />}
+          defaultExpanded={false}
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Sun className="w-8 h-8 text-yellow-400" />
+              <div>
+                <div className="text-xl font-bold">{weather.temperature.toFixed(1)}°C</div>
+                <div className="text-xs text-muted-foreground">
+                  {weather.condition === 'clear' ? (isArabic ? 'صافي' : 'Clear') :
+                   weather.condition === 'partly_cloudy' ? (isArabic ? 'غائم جزئياً' : 'Partly Cloudy') :
+                   isArabic ? 'غائم' : 'Cloudy'}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1">
+                <Cloud className="w-3 h-3" /> {isArabic ? 'غيوم' : 'Cloud'}: {weather.cloudCover.toFixed(0)}%
+              </div>
+              <div className="flex items-center gap-1">
+                <Sun className="w-3 h-3" /> UV: {weather.uvIndex.toFixed(1)}
+              </div>
+              <div className="flex items-center gap-1">
+                <Factory className="w-3 h-3" /> {isArabic ? 'غبار' : 'Dust'}: {weather.dustLevel.toFixed(0)}%
+              </div>
+              <div className="flex items-center gap-1">
+                {isArabic ? 'رياح' : 'Wind'}: {weather.windSpeed.toFixed(0)} km/h
+              </div>
             </div>
           </div>
         </ExpandablePanel>
         
+        {/* Alarms Panel */}
         <ExpandablePanel 
           title={isArabic ? 'التنبيهات' : 'Active Alarms'}
           icon={<AlertTriangle className="w-4 h-4 text-status-critical" />}
@@ -622,41 +706,146 @@ const EnhancedHUD: React.FC<{
                   <span className="font-mono">{alarm.assetId}</span>
                 </div>
                 <p className="text-muted-foreground mt-1 truncate">{alarm.message}</p>
+                {alarm.aiRecommendation && (
+                  <p className="text-primary mt-1 text-[10px]">
+                    <Brain className="w-3 h-3 inline mr-1" />
+                    {alarm.aiRecommendation}
+                  </p>
+                )}
               </div>
             ))}
           </div>
         </ExpandablePanel>
       </div>
       
-      {/* Top Right - AI Panel */}
-      <div className="absolute top-4 right-4 z-10 max-w-[320px]">
+      {/* Top Right - AI & Predictions */}
+      <div className="absolute top-14 right-4 z-10 max-w-[320px] space-y-2">
+        {/* Predictions Panel */}
         <ExpandablePanel 
-          title={isArabic ? 'دعم القرار بالذكاء الاصطناعي' : 'AI Decision Support'}
-          icon={<Brain className="w-4 h-4 text-primary" />}
-          defaultExpanded={false}
-          badge={
-            <Badge 
-              variant="outline" 
-              className={`text-xs ${
-                riskScore < 30 ? 'border-status-normal text-status-normal' :
-                riskScore < 60 ? 'border-status-warning text-status-warning' :
-                'border-status-critical text-status-critical'
-              }`}
-            >
-              {isArabic ? 'المخاطر' : 'Risk'}: {riskScore.toFixed(0)}%
-            </Badge>
-          }
+          title={isArabic ? 'التنبؤات' : 'Predictions'}
+          icon={<Target className="w-4 h-4 text-primary" />}
+          defaultExpanded={true}
         >
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-              {isArabic ? 'التوصيات' : 'Recommendations'}
-            </p>
-            {recommendations.map((rec, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm">
-                <Target className="w-3 h-3 mt-1 text-primary flex-shrink-0" />
-                <span className="text-foreground">{rec}</span>
+          <div className="space-y-3">
+            {/* Next Day Prediction */}
+            <div className="p-2 rounded bg-muted/50">
+              <div className="text-xs text-muted-foreground mb-1">
+                {isArabic ? 'إنتاج الغد' : "Tomorrow's Output"}
+              </div>
+              <div className="flex items-end gap-2">
+                <span className="text-2xl font-bold text-primary">
+                  {productionPrediction.nextDay.total.toFixed(1)}
+                </span>
+                <span className="text-sm text-muted-foreground mb-1">MWh</span>
+                <Badge variant="outline" className="ml-auto text-xs border-primary text-primary">
+                  {productionPrediction.nextDay.confidence}%
+                </Badge>
+              </div>
+            </div>
+            
+            {/* Next Month Prediction */}
+            <div className="p-2 rounded bg-muted/50">
+              <div className="text-xs text-muted-foreground mb-1">
+                {isArabic ? 'إنتاج الشهر القادم' : 'Next Month'}
+              </div>
+              <div className="flex items-end gap-2">
+                <span className="text-2xl font-bold text-primary">
+                  {(productionPrediction.nextMonth.total / 1000).toFixed(2)}
+                </span>
+                <span className="text-sm text-muted-foreground mb-1">GWh</span>
+                <Badge variant="outline" className="ml-auto text-xs border-primary text-primary">
+                  {productionPrediction.nextMonth.confidence}%
+                </Badge>
+              </div>
+            </div>
+            
+            {/* Fault Predictions */}
+            {maintenancePredictions.slice(0, 2).map((pred, i) => (
+              <div key={i} className={`p-2 rounded text-xs ${
+                pred.urgency === 'critical' ? 'bg-status-critical/20' : 'bg-status-warning/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold">{pred.assetId}</span>
+                  <Badge variant="outline" className={
+                    pred.urgency === 'critical' ? 'border-status-critical text-status-critical' : 
+                    'border-status-warning text-status-warning'
+                  }>
+                    {pred.failureProbability.toFixed(0)}% {isArabic ? 'خطر' : 'risk'}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground mt-1">{pred.reason}</p>
               </div>
             ))}
+          </div>
+        </ExpandablePanel>
+        
+        {/* Decision Layers Panel */}
+        <ExpandablePanel 
+          title={isArabic ? 'طبقات القرار' : 'Decision Layers'}
+          icon={<Brain className="w-4 h-4 text-purple-400" />}
+          defaultExpanded={false}
+          badge={
+            pendingDecisions.length > 0 ? (
+              <Badge variant="secondary" className="text-xs animate-pulse">
+                {pendingDecisions.length} {isArabic ? 'معلق' : 'pending'}
+              </Badge>
+            ) : null
+          }
+        >
+          <div className="space-y-3">
+            {/* Risk Score */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{isArabic ? 'مؤشر المخاطر' : 'Risk Score'}</span>
+              <span className={`text-lg font-bold ${
+                riskScore < 30 ? 'text-status-normal' :
+                riskScore < 60 ? 'text-status-warning' :
+                'text-status-critical'
+              }`}>
+                {riskScore.toFixed(0)}%
+              </span>
+            </div>
+            <Progress 
+              value={riskScore} 
+              className={`h-2 ${
+                riskScore >= 60 ? '[&>div]:bg-status-critical' :
+                riskScore >= 30 ? '[&>div]:bg-status-warning' : ''
+              }`}
+            />
+            
+            {/* Pending Decisions */}
+            {pendingDecisions.slice(0, 2).map(decision => (
+              <div key={decision.id} className="p-2 rounded border border-primary/30 bg-primary/5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold">{decision.title}</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {decision.impact}% {isArabic ? 'تأثير' : 'impact'}
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground mb-2">{decision.description}</p>
+                <div className="flex gap-1">
+                  <Button size="sm" className="h-6 text-xs flex-1" onClick={() => {
+                    approveDecision(decision.id);
+                    executeDecision(decision.id);
+                  }}>
+                    ✓ {isArabic ? 'تنفيذ' : 'Execute'}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={() => rejectDecision(decision.id)}>
+                    ✗ {isArabic ? 'رفض' : 'Reject'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+            
+            {/* AI Recommendations */}
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-[10px] text-muted-foreground uppercase mb-2">{isArabic ? 'توصيات AI' : 'AI Recommendations'}</p>
+              {recommendations.slice(0, 3).map((rec, i) => (
+                <div key={i} className="flex items-start gap-1 text-[10px] mb-1">
+                  <Target className="w-2 h-2 mt-0.5 text-primary flex-shrink-0" />
+                  <span className="text-foreground">{rec}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </ExpandablePanel>
       </div>
