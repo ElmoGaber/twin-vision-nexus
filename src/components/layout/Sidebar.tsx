@@ -10,11 +10,11 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
-  Zap
+  Zap,
+  Sun
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import cetLogo from '@/assets/cet-logo.png';
 
 interface NavItem {
   key: string;
@@ -50,14 +50,12 @@ export const Sidebar: React.FC = () => {
       {/* Logo Section */}
       <div className="h-16 flex items-center justify-center border-b border-sidebar-border px-4">
         <div className="flex items-center gap-3">
-          <img 
-            src={cetLogo} 
-            alt="CET Logo" 
-            className="w-10 h-10 object-contain"
-          />
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+            <Sun className="w-6 h-6 text-primary-foreground" />
+          </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sidebar-foreground font-bold text-lg">CET</span>
+              <span className="text-sidebar-foreground font-bold text-lg">SolarPulse</span>
               <span className="text-sidebar-foreground/60 text-xs">Digital Twin</span>
             </div>
           )}
