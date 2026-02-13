@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      licenses: {
+        Row: {
+          allowed_features: string[]
+          created_at: string
+          expires_at: string
+          id: string
+          max_projects: number
+          max_sessions: number
+          status: Database["public"]["Enums"]["license_status"]
+          updated_at: string
+          usage_count: number
+          usage_limit: number
+          user_id: string
+        }
+        Insert: {
+          allowed_features?: string[]
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_projects?: number
+          max_sessions?: number
+          status?: Database["public"]["Enums"]["license_status"]
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number
+          user_id: string
+        }
+        Update: {
+          allowed_features?: string[]
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_projects?: number
+          max_sessions?: number
+          status?: Database["public"]["Enums"]["license_status"]
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -41,15 +83,70 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_license: {
+        Args: { _user_id: string }
+        Returns: {
+          allowed_features: string[]
+          created_at: string
+          expires_at: string
+          id: string
+          max_projects: number
+          max_sessions: number
+          status: Database["public"]["Enums"]["license_status"]
+          updated_at: string
+          usage_count: number
+          usage_limit: number
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "licenses"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_valid_license: { Args: { _user_id: string }; Returns: boolean }
+      increment_license_usage: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      license_status: "active" | "trial" | "expired" | "revoked" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +273,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      license_status: ["active", "trial", "expired", "revoked", "suspended"],
+    },
   },
 } as const
