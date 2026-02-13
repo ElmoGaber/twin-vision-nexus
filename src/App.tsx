@@ -7,7 +7,9 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { VRProvider } from "@/contexts/VRContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LicenseProvider } from "@/contexts/LicenseContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import LicenseGate from "@/components/LicenseGate";
 import Index from "./pages/Index";
 import VRView from "./pages/VRView";
 import Alarms from "./pages/Alarms";
@@ -26,23 +28,25 @@ const App = () => (
       <LanguageProvider>
         <VRProvider>
           <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="/vr" element={<ProtectedRoute><VRView /></ProtectedRoute>} />
-                  <Route path="/alarms" element={<ProtectedRoute><Alarms /></ProtectedRoute>} />
-                  <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
-                  <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                  <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
+            <LicenseProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/" element={<ProtectedRoute><LicenseGate><Index /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/vr" element={<ProtectedRoute><LicenseGate><VRView /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/alarms" element={<ProtectedRoute><LicenseGate><Alarms /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/assets" element={<ProtectedRoute><LicenseGate><Assets /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/analytics" element={<ProtectedRoute><LicenseGate><Analytics /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><LicenseGate><Settings /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute><LicenseGate><Admin /></LicenseGate></ProtectedRoute>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </LicenseProvider>
           </AuthProvider>
         </VRProvider>
       </LanguageProvider>

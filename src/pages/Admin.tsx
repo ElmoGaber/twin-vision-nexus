@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { AdminLicensePanel } from '@/components/admin/AdminLicensePanel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -300,6 +301,9 @@ const Admin = () => {
             </div>
           </div>
         </div>
+        
+        {/* License Management Panel */}
+        <AdminLicensePanel />
       </div>
       
       {/* Add User Dialog */}

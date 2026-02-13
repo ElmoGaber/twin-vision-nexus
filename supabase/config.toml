@@ -1,1 +1,7 @@
 project_id = "ysfrhfhuuuzejnhunejh"
+
+[functions.validate-license]
+verify_jwt = false
+
+[functions.admin-licenses]
+verify_jwt = false
