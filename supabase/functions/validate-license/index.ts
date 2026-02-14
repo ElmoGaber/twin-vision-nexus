@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ valid: false, error: "No authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -21,25 +21,34 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from token
+    // Verify token using getClaims
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
 
-    if (userError || !user) {
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ valid: false, error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const userId = claimsData.claims.sub as string;
+
+    // Use service role for DB operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Get license
     const { data: license, error: licenseError } = await supabase
       .from("licenses")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (licenseError || !license) {
@@ -61,7 +70,6 @@ Deno.serve(async (req) => {
     const now = new Date();
     const expiresAt = new Date(license.expires_at);
     if (expiresAt <= now) {
-      // Auto-expire
       await supabase.from("licenses").update({ status: "expired" }).eq("id", license.id);
       return new Response(
         JSON.stringify({ valid: false, error: "License expired", code: "EXPIRED", license: { ...license, status: "expired" } }),
@@ -77,6 +85,61 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Session management - cleanup expired, check limit, register session
+    await supabase.rpc("cleanup_expired_sessions");
+
+    const { data: sessionCount } = await supabase
+      .from("active_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gt("expires_at", new Date().toISOString());
+
+    const currentSessionCount = (sessionCount as any)?.length ?? 0;
+
+    // Check session limit (use count query)
+    const { count: activeCount } = await supabase
+      .from("active_sessions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gt("expires_at", new Date().toISOString());
+
+    if ((activeCount ?? 0) >= license.max_sessions) {
+      // Delete oldest session to make room (sliding window)
+      const { data: oldestSession } = await supabase
+        .from("active_sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+
+      if (oldestSession) {
+        await supabase.from("active_sessions").delete().eq("id", oldestSession.id);
+      }
+    }
+
+    // Register/update session
+    const sessionToken = token.slice(-16); // Use last 16 chars as session identifier
+    await supabase.from("active_sessions").upsert(
+      {
+        user_id: userId,
+        session_token: sessionToken,
+        last_seen_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      { onConflict: "user_id,session_token", ignoreDuplicates: false }
+    ).then(() => {
+      // If upsert fails due to no unique constraint on (user_id, session_token),
+      // just insert
+    }).catch(async () => {
+      await supabase.from("active_sessions").insert({
+        user_id: userId,
+        session_token: sessionToken,
+        last_seen_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+    });
+
     // Increment usage
     await supabase.from("licenses").update({
       usage_count: license.usage_count + 1,
@@ -86,7 +149,7 @@ Deno.serve(async (req) => {
     const { data: roles } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     const isAdmin = roles?.some((r: any) => r.role === "admin") ?? false;
 
