@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          last_seen_at: string
+          session_token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_seen_at?: string
+          session_token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_seen_at?: string
+          session_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       licenses: {
         Row: {
           allowed_features: string[]
@@ -109,6 +136,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_session_limit: { Args: { _user_id: string }; Returns: boolean }
+      cleanup_expired_sessions: { Args: never; Returns: undefined }
       get_user_license: {
         Args: { _user_id: string }
         Returns: {
@@ -130,6 +159,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      has_feature: {
+        Args: { _feature: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
