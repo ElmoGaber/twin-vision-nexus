@@ -45,20 +45,41 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get license
-    const { data: license, error: licenseError } = await supabase
+    let { data: license, error: licenseError } = await supabase
       .from("licenses")
       .select("*")
       .eq("user_id", userId)
       .single();
 
+    // FIRST LOGIN: If no license exists, create a 7-day trial starting NOW
     if (licenseError || !license) {
-      return new Response(
-        JSON.stringify({ valid: false, error: "No license found", code: "NO_LICENSE" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: newLicense, error: createError } = await supabase
+        .from("licenses")
+        .insert({
+          user_id: userId,
+          status: "trial",
+          expires_at: expiresAt,
+          usage_limit: 500,
+          usage_count: 0,
+          allowed_features: ["dashboard", "analytics"],
+          max_sessions: 3,
+          max_projects: 1,
+        })
+        .select()
+        .single();
+
+      if (createError || !newLicense) {
+        return new Response(
+          JSON.stringify({ valid: false, error: "Failed to create trial license", code: "NO_LICENSE" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      license = newLicense;
     }
 
-    // Check status
+    // Check status - revoked or suspended
     if (license.status === "revoked" || license.status === "suspended") {
       return new Response(
         JSON.stringify({ valid: false, error: "License revoked", code: "REVOKED", license }),
@@ -70,9 +91,30 @@ Deno.serve(async (req) => {
     const now = new Date();
     const expiresAt = new Date(license.expires_at);
     if (expiresAt <= now) {
+      // Mark as expired in DB
       await supabase.from("licenses").update({ status: "expired" }).eq("id", license.id);
       return new Response(
-        JSON.stringify({ valid: false, error: "License expired", code: "EXPIRED", license: { ...license, status: "expired" } }),
+        JSON.stringify({
+          valid: false,
+          error: "License expired",
+          code: "EXPIRED",
+          license: { ...license, status: "expired" },
+          message: "Your 7-day trial has ended. Please contact the administrator to renew your license.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if already expired status in DB
+    if (license.status === "expired") {
+      return new Response(
+        JSON.stringify({
+          valid: false,
+          error: "License expired",
+          code: "EXPIRED",
+          license,
+          message: "Your 7-day trial has ended. Please contact the administrator to renew your license.",
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -85,18 +127,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Session management - cleanup expired, check limit, register session
+    // Session management
     await supabase.rpc("cleanup_expired_sessions");
 
-    const { data: sessionCount } = await supabase
-      .from("active_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gt("expires_at", new Date().toISOString());
-
-    const currentSessionCount = (sessionCount as any)?.length ?? 0;
-
-    // Check session limit (use count query)
     const { count: activeCount } = await supabase
       .from("active_sessions")
       .select("*", { count: "exact", head: true })
@@ -104,7 +137,6 @@ Deno.serve(async (req) => {
       .gt("expires_at", new Date().toISOString());
 
     if ((activeCount ?? 0) >= license.max_sessions) {
-      // Delete oldest session to make room (sliding window)
       const { data: oldestSession } = await supabase
         .from("active_sessions")
         .select("id")
@@ -118,8 +150,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Register/update session
-    const sessionToken = token.slice(-16); // Use last 16 chars as session identifier
+    // Register session
+    const sessionToken = token.slice(-16);
     await supabase.from("active_sessions").upsert(
       {
         user_id: userId,
@@ -128,10 +160,7 @@ Deno.serve(async (req) => {
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
       { onConflict: "user_id,session_token", ignoreDuplicates: false }
-    ).then(() => {
-      // If upsert fails due to no unique constraint on (user_id, session_token),
-      // just insert
-    }).catch(async () => {
+    ).catch(async () => {
       await supabase.from("active_sessions").insert({
         user_id: userId,
         session_token: sessionToken,
@@ -160,10 +189,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         valid: true,
-        license: {
-          ...license,
-          usage_count: license.usage_count + 1,
-        },
+        license: { ...license, usage_count: license.usage_count + 1 },
         isAdmin,
         remainingDays,
         remainingUsage: license.usage_limit - license.usage_count - 1,

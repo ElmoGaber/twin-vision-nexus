@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldX, Clock, AlertTriangle, Ban, RefreshCw } from 'lucide-react';
+import { ShieldX, Clock, AlertTriangle, Ban, RefreshCw, CalendarX } from 'lucide-react';
 
 const LicenseGate = ({ children }: { children: React.ReactNode }) => {
   const { isValid, loading, errorCode, license, remainingDays, refreshLicense } = useLicense();
@@ -28,9 +28,9 @@ const LicenseGate = ({ children }: { children: React.ReactNode }) => {
         desc: 'Your account does not have a license. Please contact the administrator.',
       },
       EXPIRED: {
-        icon: <Clock className="w-12 h-12 text-destructive" />,
-        title: 'License Expired',
-        desc: 'Your license has expired. Please contact the administrator to renew.',
+        icon: <CalendarX className="w-12 h-12 text-destructive" />,
+        title: 'Trial Period Ended',
+        desc: 'Your 7-day trial license has expired. You can no longer access the dashboard. Please contact the administrator to renew your license.',
       },
       REVOKED: {
         icon: <Ban className="w-12 h-12 text-destructive" />,
@@ -56,11 +56,18 @@ const LicenseGate = ({ children }: { children: React.ReactNode }) => {
           <CardHeader className="space-y-4">
             <div className="flex justify-center">{msg.icon}</div>
             <CardTitle>{msg.title}</CardTitle>
-            <CardDescription>{msg.desc}</CardDescription>
+            <CardDescription className="text-base">{msg.desc}</CardDescription>
             {license && (
-              <Badge variant="outline" className="mx-auto">
-                Status: {license.status}
-              </Badge>
+              <div className="space-y-2">
+                <Badge variant="destructive" className="mx-auto">
+                  Status: {license.status.toUpperCase()}
+                </Badge>
+                {license.expires_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Expired on: {new Date(license.expires_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
             )}
           </CardHeader>
           <CardContent className="space-y-3">
