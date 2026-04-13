@@ -35,17 +35,19 @@ const Login = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: signupData.email,
       password: signupData.password,
       options: {
-        emailRedirectTo: window.location.origin,
         data: { full_name: signupData.fullName },
       },
     });
     setLoading(false);
     if (error) {
       toast({ title: 'Signup Failed', description: error.message, variant: 'destructive' });
+    } else if (data.session) {
+      // Auto-confirmed: navigate directly to dashboard
+      navigate('/');
     } else {
       toast({
         title: 'Account Created',
