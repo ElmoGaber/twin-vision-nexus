@@ -17,38 +17,93 @@ const Login = () => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [signupData, setSignupData] = useState({ email: '', password: '', fullName: '' });
 
+  const getFallbackName = (email: string) => email.split('@')[0] || 'User';
+
+  const signInOrCreateAccount = async (email: string, password: string, fullName?: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const signInResult = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (!signInResult.error) {
+      return { ok: true as const };
+    }
+
+    if (signInResult.error.message !== 'Invalid login credentials') {
+      return { ok: false as const, error: signInResult.error };
+    }
+
+    const signUpResult = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        data: { full_name: fullName?.trim() || getFallbackName(normalizedEmail) },
+      },
+    });
+
+    if (!signUpResult.error) {
+      if (signUpResult.data.session) {
+        return { ok: true as const };
+      }
+
+      const retrySignInResult = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (!retrySignInResult.error) {
+        return { ok: true as const };
+      }
+
+      return { ok: false as const, error: retrySignInResult.error };
+    }
+
+    if (signUpResult.error.message === 'User already registered') {
+      return {
+        ok: false as const,
+        error: new Error('This email is already registered with a different password.'),
+      };
+    }
+
+    return { ok: false as const, error: signUpResult.error };
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginData.email,
-      password: loginData.password,
-    });
+
+    const result = await signInOrCreateAccount(loginData.email, loginData.password);
+
     setLoading(false);
-    if (error) {
-      toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
-    } else {
-      navigate('/');
+
+    if (!result.ok) {
+      toast({ title: 'Login Failed', description: result.error.message, variant: 'destructive' });
+      return;
     }
+
+    navigate('/');
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: signupData.email,
-      password: signupData.password,
-      options: {
-        data: { full_name: signupData.fullName },
-      },
-    });
+
+    const result = await signInOrCreateAccount(
+      signupData.email,
+      signupData.password,
+      signupData.fullName,
+    );
+
     setLoading(false);
-    if (error) {
-      toast({ title: 'Signup Failed', description: error.message, variant: 'destructive' });
-    } else {
-      // Auto-confirm is enabled, navigate to dashboard
-      navigate('/');
+
+    if (!result.ok) {
+      toast({ title: 'Signup Failed', description: result.error.message, variant: 'destructive' });
+      return;
     }
+
+    navigate('/');
   };
 
   return (
