@@ -45,14 +45,9 @@ const Login = () => {
     setLoading(false);
     if (error) {
       toast({ title: 'Signup Failed', description: error.message, variant: 'destructive' });
-    } else if (data.session) {
-      // Auto-confirmed: navigate directly to dashboard
-      navigate('/');
     } else {
-      toast({
-        title: 'Account Created',
-        description: 'Please check your email to verify your account before signing in.',
-      });
+      // Auto-confirm is enabled, navigate to dashboard
+      navigate('/');
     }
   };
 
