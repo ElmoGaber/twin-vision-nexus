@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AdminLicensePanel } from '@/components/admin/AdminLicensePanel';
+import { LicenseManagement } from '@/components/admin/LicenseManagement';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,13 +72,33 @@ const Admin = () => {
   const { t, dir, language } = useLanguage();
   const { toast } = useToast();
   
-  const [users, setUsers] = useState<User[]>([
-    { id: '1', name: 'Ahmed Al-Hassan', email: 'ahmed@solarpulse.com', role: 'super_admin', status: 'active', lastActive: new Date() },
-    { id: '2', name: 'Sara Mohammed', email: 'sara@solarpulse.com', role: 'admin', status: 'active', lastActive: new Date(Date.now() - 3600000) },
-    { id: '3', name: 'Omar Ibrahim', email: 'omar@solarpulse.com', role: 'operator', status: 'active', lastActive: new Date(Date.now() - 7200000) },
-    { id: '4', name: 'Fatima Ali', email: 'fatima@solarpulse.com', role: 'operator', status: 'active', lastActive: new Date(Date.now() - 86400000) },
-    { id: '5', name: 'Khalid Nasser', email: 'khalid@solarpulse.com', role: 'viewer', status: 'inactive', lastActive: new Date(Date.now() - 604800000) },
-  ]);
+  // Load users from localStorage or use default
+  const loadUsersFromStorage = (): User[] => {
+    try {
+      const stored = localStorage.getItem('tvnx_users');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert date strings back to Date objects
+        return parsed.map((u: any) => ({
+          ...u,
+          lastActive: new Date(u.lastActive)
+        }));
+      }
+    } catch (e) {
+      console.error('Error loading users from localStorage:', e);
+    }
+    
+    // Default users
+    return [
+      { id: '1', name: 'Ahmed Al-Hassan', email: 'ahmed@solarpulse.com', role: 'super_admin', status: 'active', lastActive: new Date() },
+      { id: '2', name: 'Sara Mohammed', email: 'sara@solarpulse.com', role: 'admin', status: 'active', lastActive: new Date(Date.now() - 3600000) },
+      { id: '3', name: 'Omar Ibrahim', email: 'omar@solarpulse.com', role: 'operator', status: 'active', lastActive: new Date(Date.now() - 7200000) },
+      { id: '4', name: 'Fatima Ali', email: 'fatima@solarpulse.com', role: 'operator', status: 'active', lastActive: new Date(Date.now() - 86400000) },
+      { id: '5', name: 'Khalid Nasser', email: 'khalid@solarpulse.com', role: 'viewer', status: 'inactive', lastActive: new Date(Date.now() - 604800000) },
+    ];
+  };
+  
+  const [users, setUsers] = useState<User[]>(loadUsersFromStorage());
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -86,6 +107,15 @@ const Admin = () => {
     role: 'viewer' as User['role'],
     status: 'active' as User['status'],
   });
+  
+  // Save users to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('tvnx_users', JSON.stringify(users));
+    } catch (e) {
+      console.error('Error saving users to localStorage:', e);
+    }
+  }, [users]);
   
   const adminSections = [
     { icon: Users, label: language === 'ar' ? 'إدارة المستخدمين' : 'User Management', count: users.length },
@@ -304,6 +334,9 @@ const Admin = () => {
         
         {/* License Management Panel */}
         <AdminLicensePanel />
+        
+        {/* License Management */}
+        <LicenseManagement />
       </div>
       
       {/* Add User Dialog */}

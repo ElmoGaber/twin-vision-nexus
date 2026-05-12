@@ -8,6 +8,7 @@ import { useVR } from '@/contexts/VRContext';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +26,15 @@ import {
 export const Header: React.FC = () => {
   const { language, setLanguage, t, dir } = useLanguage();
   const { theme, toggleTheme } = useTheme();
-  const { alarms } = useVR();
+  const { alarms, navigateToAsset } = useVR();
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  const activeAlarms = alarms.filter(a => a.severity === 'critical' || a.severity === 'warning');
-  const criticalAlarms = alarms.filter(a => a.severity === 'critical');
-  const warningAlarms = alarms.filter(a => a.severity === 'warning');
+  const operationalAlarms = alarms.filter(a => !a.id.startsWith('ALM-SYS-'));
+  const activeAlarms = operationalAlarms.filter(a => a.severity === 'critical' || a.severity === 'warning');
+  const criticalAlarms = operationalAlarms.filter(a => a.severity === 'critical');
+  const warningAlarms = operationalAlarms.filter(a => a.severity === 'warning');
   
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -66,6 +69,21 @@ export const Header: React.FC = () => {
     if (minutes < 60) return language === 'ar' ? `منذ ${minutes} دقيقة` : `${minutes}m ago`;
     if (hours < 24) return language === 'ar' ? `منذ ${hours} ساعة` : `${hours}h ago`;
     return date.toLocaleDateString();
+  };
+
+  const handleAlertClick = (alarm: typeof alarms[number]) => {
+    if (alarm.position) {
+      navigateToAsset({
+        assetId: alarm.assetId,
+        assetType: alarm.assetType,
+        position: alarm.position,
+        focus: true,
+      });
+      navigate('/vr');
+      return;
+    }
+
+    navigate('/alarms');
   };
   
   return (
@@ -120,7 +138,16 @@ export const Header: React.FC = () => {
         <div className="w-px h-8 bg-border hidden md:block" />
         
         {/* Refresh */}
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            // Refresh page data
+            window.location.reload();
+          }}
+          title="Refresh data"
+        >
           <RefreshCw className="w-4 h-4" />
         </Button>
         
@@ -175,6 +202,7 @@ export const Header: React.FC = () => {
                         alarm.severity === 'critical' && 'border-l-2 border-l-status-critical',
                         alarm.severity === 'warning' && 'border-l-2 border-l-status-warning'
                       )}
+                      onClick={() => handleAlertClick(alarm)}
                     >
                       <div className="flex items-start gap-3">
                         {alarm.severity === 'critical' ? (
@@ -212,7 +240,12 @@ export const Header: React.FC = () => {
             </ScrollArea>
             
             <div className="p-2 border-t border-border">
-              <Button variant="ghost" className="w-full text-sm" size="sm">
+              <Button 
+                variant="ghost" 
+                className="w-full text-sm" 
+                size="sm"
+                onClick={() => navigate('/alarms')}
+              >
                 {language === 'ar' ? 'عرض جميع التنبيهات' : 'View All Alerts'}
               </Button>
             </div>

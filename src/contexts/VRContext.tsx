@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { playSystemDecisionEvent } from '@/lib/audioManager';
 
 export interface SolarPanelData {
   id: string;
@@ -31,7 +32,7 @@ export interface AlarmData {
   id: string;
   assetId: string;
   assetType: 'panel' | 'transformer' | 'inverter';
-  severity: 'warning' | 'critical';
+  severity: 'warning' | 'critical' | 'info';
   message: string;
   timestamp: Date;
   position: [number, number, number];
@@ -503,7 +504,7 @@ const generateDecisionLayers = (): DecisionLayer[] => [
     confidence: 91,
     action: 'SWITCH_MODE',
     automated: true,
-    status: 'executing',
+    status: 'approved',
     createdAt: new Date(Date.now() - 1800000)
   }
 ];
@@ -550,6 +551,124 @@ export const VRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ]);
   
   const [riskScore, setRiskScore] = useState(35);
+
+  const appendSystemAlarm = useCallback((input: {
+    assetId?: string;
+    assetType?: AlarmData['assetType'];
+    severity?: AlarmData['severity'];
+    message: string;
+    position?: [number, number, number];
+    aiRecommendation?: string;
+  }) => {
+    const id = `ALM-SYS-${Date.now()}`;
+    const systemAlarm: AlarmData = {
+      id,
+      assetId: input.assetId ?? 'SYS-AI',
+      assetType: input.assetType ?? 'inverter',
+      severity: input.severity ?? 'info',
+      message: input.message,
+      timestamp: new Date(),
+      position: input.position ?? [0, 0, 0],
+      aiRecommendation: input.aiRecommendation,
+      autoResolution: {
+        available: false,
+        action: 'Monitor decision impact in real-time',
+        estimatedTime: 15,
+      },
+    };
+
+    setAlarms(prev => [systemAlarm, ...prev].slice(0, 20));
+  }, []);
+
+  const applyDecisionOutcome = useCallback((decision?: DecisionLayer) => {
+    if (!decision) return;
+
+    switch (decision.action) {
+      case 'AUTO_LOAD_BALANCE': {
+        setTransformers(prev => prev.map(t =>
+          t.id === 'T1'
+            ? {
+                ...t,
+                status: 'normal',
+                load: Math.max(55, Math.min(t.load, 72)),
+                temperature: Math.max(40, Math.min(t.temperature, 58)),
+              }
+            : t
+        ));
+
+        setAlarms(prev => prev.filter(a => !(a.assetId === 'T1' && a.assetType === 'transformer')));
+        setRiskScore(prev => Math.max(8, prev - 14));
+
+        appendSystemAlarm({
+          assetId: 'T1',
+          assetType: 'transformer',
+          severity: 'warning',
+          message: 'Critical transformer condition resolved after load redistribution.',
+          aiRecommendation: 'Continue monitoring T1 temperature trend for the next cycle.',
+        });
+        break;
+      }
+
+      case 'SCHEDULE_CLEANING': {
+        const cleanedPanels = new Set(['SP-D9', 'SP-D10', 'SP-D11', 'SP-D12']);
+        const isolatedCriticalPanels = new Set(['SP-F5']);
+
+        setSolarPanels(prev => prev.map(p =>
+          (cleanedPanels.has(p.id) || isolatedCriticalPanels.has(p.id))
+            ? {
+                ...p,
+                status: 'normal',
+                efficiency: Math.min(97, p.efficiency + (isolatedCriticalPanels.has(p.id) ? 8 : 6)),
+                temperature: Math.max(30, p.temperature - (isolatedCriticalPanels.has(p.id) ? 8 : 4)),
+              }
+            : p
+        ));
+
+        setAlarms(prev => prev.filter(a => !cleanedPanels.has(a.assetId) && !isolatedCriticalPanels.has(a.assetId)));
+        setRiskScore(prev => Math.max(8, prev - 7));
+
+        appendSystemAlarm({
+          assetId: 'SP-D9',
+          assetType: 'panel',
+          severity: 'info',
+          message: 'Predictive cleaning completed for panels D9-D12; efficiency restored.',
+          aiRecommendation: 'Recheck irradiance-adjusted performance in 15 minutes.',
+        });
+
+        appendSystemAlarm({
+          assetId: 'SP-F5',
+          assetType: 'panel',
+          severity: 'info',
+          message: 'Critical panel SP-F5 isolated and recovered from active critical state.',
+          aiRecommendation: 'Keep SP-F5 under observation in next maintenance cycle.',
+        });
+        break;
+      }
+
+      case 'ADJUST_TRACKING': {
+        setLiveMetrics(prev => ({
+          ...prev,
+          efficiency: Math.min(99, prev.efficiency + 1.5),
+          predictedPowerNextHour: prev.predictedPowerNextHour * 1.02,
+        }));
+        setRiskScore(prev => Math.max(8, prev - 3));
+        break;
+      }
+
+      case 'SWITCH_MODE': {
+        setLiveMetrics(prev => ({
+          ...prev,
+          totalPower: prev.totalPower + 0.8,
+          efficiency: Math.min(99, prev.efficiency + 0.8),
+        }));
+        setRiskScore(prev => Math.max(8, prev - 2));
+        break;
+      }
+
+      default:
+        break;
+    }
+  }, [appendSystemAlarm]);
   
   // Simulate real-time updates
   useEffect(() => {
@@ -625,6 +744,21 @@ export const VRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     
     return () => clearInterval(interval);
   }, [weather, solarPanels, transformers]);
+
+  // Backend-like automation: once maintenance decision is approved, execute it automatically.
+  useEffect(() => {
+    const approvedMaintenance = decisionLayers.find(
+      (d) => d.action === 'SCHEDULE_CLEANING' && d.status === 'approved'
+    );
+
+    if (!approvedMaintenance) return;
+
+    const timer = setTimeout(() => {
+      executeDecision(approvedMaintenance.id);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [decisionLayers]);
   
   const navigateToAsset = useCallback((target: VRNavigationTarget) => {
     setNavigationTarget(target);
@@ -659,29 +793,71 @@ export const VRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, []);
   
   const approveDecision = useCallback((id: string) => {
+    const target = decisionLayers.find(d => d.id === id);
+
     setDecisionLayers(prev => prev.map(d => 
       d.id === id ? { ...d, status: 'approved' as const } : d
     ));
-  }, []);
+
+    appendSystemAlarm({
+      assetId: target?.id,
+      severity: 'info',
+      message: `Decision approved: ${target?.title ?? id}`,
+      aiRecommendation: 'Track execution status and validate KPI impact over next cycle.',
+    });
+
+    playSystemDecisionEvent('approve', 'vr-context');
+  }, [appendSystemAlarm, decisionLayers]);
   
   const rejectDecision = useCallback((id: string) => {
+    const target = decisionLayers.find(d => d.id === id);
+
     setDecisionLayers(prev => prev.map(d => 
       d.id === id ? { ...d, status: 'rejected' as const } : d
     ));
-  }, []);
+
+    appendSystemAlarm({
+      assetId: target?.id,
+      severity: 'critical',
+      message: `Decision rejected: ${target?.title ?? id}`,
+      aiRecommendation: 'Re-evaluate risk profile and assign manual operator review.',
+    });
+
+    playSystemDecisionEvent('reject', 'vr-context');
+  }, [appendSystemAlarm, decisionLayers]);
   
   const executeDecision = useCallback((id: string) => {
+    const target = decisionLayers.find(d => d.id === id);
+
     setDecisionLayers(prev => prev.map(d => 
       d.id === id ? { ...d, status: 'executing' as const } : d
     ));
+
+    appendSystemAlarm({
+      assetId: target?.id,
+      severity: 'info',
+      message: `Execution started: ${target?.title ?? id}`,
+      aiRecommendation: 'Execution in progress. Monitor thermal and output deltas.',
+    });
+
+    playSystemDecisionEvent('execute', 'vr-context');
     
     // Simulate execution completion
     setTimeout(() => {
       setDecisionLayers(prev => prev.map(d => 
         d.id === id ? { ...d, status: 'completed' as const } : d
       ));
+
+      applyDecisionOutcome(target);
+
+      appendSystemAlarm({
+        assetId: target?.id,
+        severity: 'info',
+        message: `Execution completed: ${target?.title ?? id}`,
+        aiRecommendation: 'Compare post-execution KPIs against forecast baseline.',
+      });
     }, 5000);
-  }, []);
+  }, [appendSystemAlarm, applyDecisionOutcome, decisionLayers]);
   
   return (
     <VRContext.Provider value={{

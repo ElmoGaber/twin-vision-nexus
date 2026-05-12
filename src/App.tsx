@@ -9,15 +9,14 @@ import { VRProvider } from "@/contexts/VRContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LicenseProvider } from "@/contexts/LicenseContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import LicenseGate from "@/components/LicenseGate";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
 import VRView from "./pages/VRView";
 import Alarms from "./pages/Alarms";
 import Assets from "./pages/Assets";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
-import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,29 +25,29 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <LanguageProvider>
-        <VRProvider>
-          <AuthProvider>
-            <LicenseProvider>
+        <AuthProvider>
+          <LicenseProvider>
+            <VRProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
                   <Routes>
                     <Route path="/login" element={<Login />} />
-                    <Route path="/" element={<ProtectedRoute><LicenseGate><Index /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/vr" element={<ProtectedRoute><LicenseGate><VRView /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/alarms" element={<ProtectedRoute><LicenseGate><Alarms /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/assets" element={<ProtectedRoute><LicenseGate><Assets /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/analytics" element={<ProtectedRoute><LicenseGate><Analytics /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/settings" element={<ProtectedRoute><LicenseGate><Settings /></LicenseGate></ProtectedRoute>} />
-                    <Route path="/admin" element={<ProtectedRoute><LicenseGate><Admin /></LicenseGate></ProtectedRoute>} />
+                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/vr" element={<ProtectedRoute><VRView /></ProtectedRoute>} />
+                    <Route path="/alarms" element={<ProtectedRoute><Alarms /></ProtectedRoute>} />
+                    <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+                    <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>
               </TooltipProvider>
-            </LicenseProvider>
-          </AuthProvider>
-        </VRProvider>
+            </VRProvider>
+          </LicenseProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   </QueryClientProvider>

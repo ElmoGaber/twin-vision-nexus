@@ -57,6 +57,22 @@ const VRView = () => {
     }
   };
   
+  const handleScreenshot = () => {
+    // Take screenshot using html2canvas library
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `vr-screenshot-${new Date().getTime()}.png`;
+      link.click();
+    }
+  };
+  
+  const handleSettings = () => {
+    // Settings action - can open a modal or settings panel
+    alert('Settings panel would open here. Currently showing basic canvas download.');
+  };
+  
   return (
     <DashboardLayout>
       <div className="h-full flex flex-col gap-4">
@@ -77,7 +93,11 @@ const VRView = () => {
               <List className="w-4 h-4 me-2" />
               Assets
             </Button>
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleScreenshot}
+            >
               <Camera className="w-4 h-4 me-2" />
               Screenshot
             </Button>
@@ -89,7 +109,11 @@ const VRView = () => {
               <RotateCcw className="w-4 h-4 me-2" />
               Reset View
             </Button>
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleSettings}
+            >
               <Settings className="w-4 h-4 me-2" />
               Settings
             </Button>

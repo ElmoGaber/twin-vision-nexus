@@ -21,24 +21,25 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify token using getUser (reliable method)
+    // Verify token using getClaims
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: userData, error: userError } = await anonClient.auth.getUser();
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
 
-    if (userError || !userData?.user) {
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ valid: false, error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = userData.user.id;
+    const userId = claimsData.claims.sub as string;
 
     // Use service role for DB operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -48,10 +49,10 @@ Deno.serve(async (req) => {
       .from("licenses")
       .select("*")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     // FIRST LOGIN: If no license exists, create a 7-day trial starting NOW
-    if (!license) {
+    if (licenseError || !license) {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: newLicense, error: createError } = await supabase
         .from("licenses")
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
     const now = new Date();
     const expiresAt = new Date(license.expires_at);
     if (expiresAt <= now) {
+      // Mark as expired in DB
       await supabase.from("licenses").update({ status: "expired" }).eq("id", license.id);
       return new Response(
         JSON.stringify({
@@ -97,6 +99,7 @@ Deno.serve(async (req) => {
           error: "License expired",
           code: "EXPIRED",
           license: { ...license, status: "expired" },
+          message: "Your 7-day trial has ended. Please contact the administrator to renew your license.",
         }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -105,7 +108,13 @@ Deno.serve(async (req) => {
     // Check if already expired status in DB
     if (license.status === "expired") {
       return new Response(
-        JSON.stringify({ valid: false, error: "License expired", code: "EXPIRED", license }),
+        JSON.stringify({
+          valid: false,
+          error: "License expired",
+          code: "EXPIRED",
+          license,
+          message: "Your 7-day trial has ended. Please contact the administrator to renew your license.",
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -142,13 +151,22 @@ Deno.serve(async (req) => {
     }
 
     // Register session
-    const token = authHeader.replace("Bearer ", "");
     const sessionToken = token.slice(-16);
-    await supabase.from("active_sessions").insert({
-      user_id: userId,
-      session_token: sessionToken,
-      last_seen_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    await supabase.from("active_sessions").upsert(
+      {
+        user_id: userId,
+        session_token: sessionToken,
+        last_seen_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      { onConflict: "user_id,session_token", ignoreDuplicates: false }
+    ).catch(async () => {
+      await supabase.from("active_sessions").insert({
+        user_id: userId,
+        session_token: sessionToken,
+        last_seen_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
     });
 
     // Increment usage
@@ -179,7 +197,6 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("Validate license error:", err);
     return new Response(
       JSON.stringify({ valid: false, error: "Internal error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

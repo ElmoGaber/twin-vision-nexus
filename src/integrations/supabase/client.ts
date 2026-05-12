@@ -2,8 +2,26 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const ONLINE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const ONLINE_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const LOCAL_SUPABASE_URL =
+  import.meta.env.VITE_LOCAL_SUPABASE_URL ||
+  'http://127.0.0.1:54321';
+const LOCAL_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_LOCAL_SUPABASE_PUBLISHABLE_KEY;
+
+const USE_LOCAL_SUPABASE =
+  import.meta.env.VITE_USE_LOCAL_SUPABASE === 'true' ||
+  (import.meta.env.DEV && typeof window !== 'undefined' && window.location.hostname === 'localhost' && !!LOCAL_SUPABASE_PUBLISHABLE_KEY);
+
+const SUPABASE_URL = USE_LOCAL_SUPABASE ? LOCAL_SUPABASE_URL : ONLINE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = USE_LOCAL_SUPABASE
+  ? (LOCAL_SUPABASE_PUBLISHABLE_KEY || ONLINE_SUPABASE_PUBLISHABLE_KEY)
+  : ONLINE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error('Missing Supabase environment variables. Check .env values.');
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

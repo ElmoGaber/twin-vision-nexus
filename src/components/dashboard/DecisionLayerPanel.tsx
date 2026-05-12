@@ -265,7 +265,7 @@ const DecisionCard: React.FC<{
         </div>
       )}
       
-      {decision.status === 'approved' && decision.automated && (
+      {decision.status === 'approved' && (
         <Button size="sm" className="w-full gap-1" onClick={onExecute}>
           <Play className="w-4 h-4" />
           {isArabic ? 'تنفيذ الآن' : 'Execute Now'}

@@ -562,6 +562,9 @@ const EnhancedHUD: React.FC<{
     lastUpdate,
     syncStatus
   } = useVR();
+
+  const operationalAlarms = alarms.filter(a => !a.id.startsWith('ALM-SYS-'));
+  const activeOperationalAlarms = operationalAlarms.filter(a => a.severity === 'critical' || a.severity === 'warning');
   
   const pendingDecisions = decisionLayers.filter(d => d.status === 'pending');
   
@@ -687,10 +690,10 @@ const EnhancedHUD: React.FC<{
           title={isArabic ? 'التنبيهات' : 'Active Alarms'}
           icon={<AlertTriangle className="w-4 h-4 text-status-critical" />}
           defaultExpanded={false}
-          badge={<Badge variant="destructive" className="text-xs">{alarms.length}</Badge>}
+          badge={<Badge variant="destructive" className="text-xs">{activeOperationalAlarms.length}</Badge>}
         >
           <div className="space-y-2 max-h-[150px] overflow-y-auto">
-            {alarms.slice(0, 5).map(alarm => (
+            {activeOperationalAlarms.slice(0, 5).map(alarm => (
               <div 
                 key={alarm.id} 
                 className={`text-xs p-2 rounded border ${
@@ -829,7 +832,9 @@ const EnhancedHUD: React.FC<{
                   }}>
                     ✓ {isArabic ? 'تنفيذ' : 'Execute'}
                   </Button>
-                  <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={() => rejectDecision(decision.id)}>
+                  <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={() => {
+                    rejectDecision(decision.id);
+                  }}>
                     ✗ {isArabic ? 'رفض' : 'Reject'}
                   </Button>
                 </div>

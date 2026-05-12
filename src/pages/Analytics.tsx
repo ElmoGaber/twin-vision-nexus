@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { Calendar, Download, TrendingUp, BarChart2, PieChart, Activity } from 'lucide-react';
+import { Calendar, Download, TrendingUp, BarChart2, PieChart, Activity, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   LineChart,
   Line,
@@ -49,8 +55,16 @@ const predictiveData = [
 ];
 
 const Analytics = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { theme } = useTheme();
+  const [timeRange, setTimeRange] = useState<'7days' | '30days' | '90days' | '1year'>('7days');
+  
+  const timeRangeLabels = {
+    '7days': language === 'ar' ? 'آخر 7 أيام' : 'Last 7 Days',
+    '30days': language === 'ar' ? 'آخر 30 يوم' : 'Last 30 Days',
+    '90days': language === 'ar' ? 'آخر 90 يوم' : 'Last 90 Days',
+    '1year': language === 'ar' ? 'السنة الماضية' : 'Last Year',
+  };
   
   const chartColors = {
     line: theme === 'dark' ? 'hsl(0, 0%, 95%)' : 'hsl(210, 40%, 10%)',
@@ -58,6 +72,41 @@ const Analytics = () => {
     primary: 'hsl(152, 60%, 45%)',
     secondary: 'hsl(210, 80%, 50%)',
     warning: 'hsl(38, 92%, 50%)',
+  };
+  
+  const handleExportData = () => {
+    const exportData = {
+      timeRange: timeRange,
+      exportedAt: new Date().toISOString(),
+      weeklyData,
+      assetDistribution,
+      predictiveData,
+    };
+    
+    const csvContent = [
+      ['Analytics Export Report', `Time Range: ${timeRangeLabels[timeRange]}`],
+      ['Exported Date', new Date().toLocaleString()],
+      [],
+      ['Weekly Data'],
+      ['Day', 'Generation (MWh)', 'Consumption (MWh)', 'Efficiency (%)'],
+      ...weeklyData.map(item => [item.day, item.generation, item.consumption, item.efficiency]),
+      [],
+      ['Asset Distribution'],
+      ['Asset Name', 'Contribution (%)'],
+      ...assetDistribution.map(item => [item.name, item.value]),
+    ];
+    
+    const csvText = csvContent.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `analytics_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
   
   return (
@@ -72,11 +121,34 @@ const Analytics = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Calendar className="w-4 h-4 me-2" />
-              Last 7 Days
-            </Button>
-            <Button variant="outline" size="sm">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Calendar className="w-4 h-4 me-2" />
+                  {timeRangeLabels[timeRange]}
+                  <ChevronDown className="w-3 h-3 ms-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={() => setTimeRange('7days')}>
+                  {language === 'ar' ? 'آخر 7 أيام' : 'Last 7 Days'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTimeRange('30days')}>
+                  {language === 'ar' ? 'آخر 30 يوم' : 'Last 30 Days'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTimeRange('90days')}>
+                  {language === 'ar' ? 'آخر 90 يوم' : 'Last 90 Days'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTimeRange('1year')}>
+                  {language === 'ar' ? 'السنة الماضية' : 'Last Year'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleExportData}
+            >
               <Download className="w-4 h-4 me-2" />
               {t('common.export')}
             </Button>
@@ -92,6 +164,9 @@ const Analytics = () => {
                 <BarChart2 className="w-5 h-5 text-primary" />
                 <h3 className="font-semibold text-foreground">Weekly Energy Performance</h3>
               </div>
+              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                {timeRangeLabels[timeRange]}
+              </span>
             </div>
             <div className="p-4 h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -162,7 +237,12 @@ const Analytics = () => {
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h3 className="font-semibold text-foreground">AI Predictive Analytics - 6 Month Forecast</h3>
               </div>
-              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">AI Generated</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">AI Generated</span>
+                <span className="text-xs bg-secondary/20 text-secondary px-2 py-1 rounded">
+                  {timeRangeLabels[timeRange]}
+                </span>
+              </div>
             </div>
             <div className="p-4 h-[350px]">
               <ResponsiveContainer width="100%" height="100%">

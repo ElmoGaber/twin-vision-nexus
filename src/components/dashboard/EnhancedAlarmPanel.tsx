@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,14 +12,79 @@ import {
   MapPin, 
   Eye,
   CheckCircle,
-  Zap
+  Zap,
+  X,
+  Info
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+interface AlarmDetailsModalProps {
+  alarm: any;
+  isOpen: boolean;
+  onClose: () => void;
+  language: string;
+}
+
+const AlarmDetailsModal: React.FC<AlarmDetailsModalProps> = ({ alarm, isOpen, onClose, language }) => {
+  if (!isOpen || !alarm) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl bg-card border-border">
+        <CardHeader className="border-b border-border/50 flex flex-row items-center justify-between">
+          <CardTitle>
+            {language === 'ar' ? 'تفاصيل التنبيه' : 'Alarm Details'}
+          </CardTitle>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'معرف التنبيه' : 'Alarm ID'}</p>
+              <p className="font-mono font-bold text-foreground">{alarm.id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الخطورة' : 'Severity'}</p>
+              <Badge className={alarm.severity === 'critical' ? 'bg-status-critical' : 'bg-status-warning'}>
+                {alarm.severity.toUpperCase()}
+              </Badge>
+            </div>
+            <div className="col-span-2">
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الرسالة' : 'Message'}</p>
+              <p className="text-foreground">{alarm.message}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الأصل' : 'Asset'}</p>
+              <p className="text-foreground">{alarm.assetId}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الموقع' : 'Position'}</p>
+              <p className="text-foreground font-mono">[{alarm.position.map((p: number) => p.toFixed(1)).join(', ')}]</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{language === 'ar' ? 'الوقت' : 'Time'}</p>
+              <p className="text-foreground">{formatDistanceToNow(alarm.timestamp, { addSuffix: true })}</p>
+            </div>
+            {alarm.aiRecommendation && (
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground">{language === 'ar' ? 'التوصية' : 'AI Recommendation'}</p>
+                <p className="text-foreground bg-primary/5 border border-primary/20 rounded p-2">{alarm.aiRecommendation}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 export const EnhancedAlarmPanel: React.FC = () => {
-  const { t } = useLanguage();
-  const { alarms, navigateToAsset } = useVR();
+  const { t, language } = useLanguage();
+  const { alarms, navigateToAsset, acknowledgeAlarm } = useVR();
   const navigate = useNavigate();
+  const [selectedAlarm, setSelectedAlarm] = useState<any>(null);
   
   const handleJumpToVR = (alarm: typeof alarms[0]) => {
     navigateToAsset({
@@ -29,6 +94,10 @@ export const EnhancedAlarmPanel: React.FC = () => {
       focus: true,
     });
     navigate('/vr');
+  };
+  
+  const handleAcknowledge = (alarmId: string) => {
+    acknowledgeAlarm(alarmId);
   };
   
   const criticalAlarms = alarms.filter(a => a.severity === 'critical');
@@ -130,21 +199,48 @@ export const EnhancedAlarmPanel: React.FC = () => {
                       </div>
                     </div>
                     
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="gap-1 shrink-0"
-                      onClick={() => handleJumpToVR(alarm)}
-                    >
-                      <Eye className="w-3 h-3" />
-                      {t('alarms.jumpToVR')}
-                    </Button>
+                    <div className="flex gap-2 shrink-0">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="gap-1 text-xs"
+                        onClick={() => handleAcknowledge(alarm.id)}
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        {language === 'ar' ? 'تأكيد' : 'Ack'}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="gap-1 text-xs"
+                        onClick={() => setSelectedAlarm(alarm)}
+                      >
+                        <Info className="w-3 h-3" />
+                        {language === 'ar' ? 'التفاصيل' : 'Details'}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="gap-1"
+                        onClick={() => handleJumpToVR(alarm)}
+                      >
+                        <Eye className="w-3 h-3" />
+                        {t('alarms.jumpToVR')}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
         </ScrollArea>
+        
+        <AlarmDetailsModal 
+          alarm={selectedAlarm}
+          isOpen={!!selectedAlarm}
+          onClose={() => setSelectedAlarm(null)}
+          language={language}
+        />
       </CardContent>
     </Card>
   );
