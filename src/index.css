@@ -300,3 +300,28 @@
     background-color: hsl(var(--status-offline));
   }
 }
+
+/* ============================================================
+   Hide injected "Edit with Lovable" badge (global, CSS-only)
+   ============================================================ */
+#lovable-badge,
+a#lovable-badge,
+[id^="lovable-badge"],
+[id*="lovable-badge"],
+[class*="lovable-badge"],
+a[href*="lovable.dev"][target="_blank"],
+a[href*="lovable.app"][target="_blank"],
+iframe[src*="lovable.dev/badge"],
+iframe[src*="gpteng.co"][style*="position"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -99999px !important;
+  top: -99999px !important;
+  z-index: -1 !important;
+}
